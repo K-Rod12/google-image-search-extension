@@ -6,18 +6,22 @@ This Raycast extension uses the Google Custom Search API to quickly search for i
 
 ### Prerequisites
 
-1. **Google Custom Search API Key**
+1. **Google Custom Search API Key** 
    - Visit the [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or use an existing one
-   - Enable the "Custom Search API"
-   - Create an API key in the "Credentials" section
+   - Open the left side menu and select APIs & services.
+   - On the left, choose **Credentials** 
+   - Click Create credentials and then select API key
+   - Copy the API key and input it in the raycast preferences for this extension
 
 2. **Custom Search Engine ID**
-   - Go to [Google Programmable Search Engine](https://programmablesearch.google.com/)
+   - Go to [Google Programmable Search Engine](https://programmablesearchengine.google.com/controlpanel/create)
    - Create a new search engine
    - Set it to search the entire web
    - Enable "Image search" option
    - Get your Search Engine ID (cx)
+
+![Search Engine Form](<create-search-engine.png>)
 
 ### Installation
 

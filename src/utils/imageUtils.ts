@@ -1,7 +1,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import os from "os";
-import { showToast, Toast } from "@raycast/api";
+import { showToast, Toast, getPreferenceValues } from "@raycast/api";
+import { exec } from "child_process";
+import axios from "axios";
+import { Preferences } from "../types";
+
+// Get download path from Raycast preferences
+const { downloadPath } = getPreferenceValues<Preferences>();
 
 // Helper function to get file extension from MIME type
 export function getFileExtensionFromMime(mime: string): string {
@@ -14,9 +20,9 @@ export function getFileExtensionFromMime(mime: string): string {
     "image/webp": ".webp",
     "image/bmp": ".bmp",
     "image/tiff": ".tiff",
-    "image/x-icon": ".ico"
+    "image/x-icon": ".ico",
   };
-  
+
   return mimeMap[mime] || ".jpg"; // Default to .jpg if MIME type is not recognized
 }
 
@@ -30,22 +36,26 @@ export async function downloadImage(imageUrl: string, title: string, mime?: stri
     });
 
     // Create a unique filename based on title with the correct extension
-    const safeTitle = title.replace(/[^a-z0-9]/gi, "_").toLowerCase().substring(0, 50);
+    const safeTitle = title
+      .replace(/[^a-z0-9]/gi, "_")
+      .toLowerCase()
+      .substring(0, 50);
     const timestamp = new Date().getTime();
     const extension = mime ? getFileExtensionFromMime(mime) : ".jpg";
     const filename = `${safeTitle}_${timestamp}${extension}`;
-    const downloadsPath = path.join(os.homedir(), "Downloads");
+    const downloadsPath = downloadPath ? downloadPath : path.join(os.homedir(), "Downloads");
     const filePath = path.join(downloadsPath, filename);
 
-    // Fetch the image
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
+    // Fetch the image using axios
+    const response = await axios.get(imageUrl, {
+      responseType: "arraybuffer",
+    });
+    if (response.status !== 200) {
       throw new Error(`Failed to download image: ${response.statusText}`);
     }
 
     // Convert the response to a buffer
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(response.data);
 
     // Write the buffer to a file
     await fs.writeFile(filePath, buffer);
@@ -78,26 +88,26 @@ export async function copyImageToClipboard(imageUrl: string): Promise<void> {
       title: "Copying image to clipboard...",
     });
 
-    // Download the image temporarily
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
+    // Download the image temporarily using axios
+    const response = await axios.get(imageUrl, {
+      responseType: "arraybuffer",
+    });
+    if (response.status !== 200) {
       throw new Error(`Failed to fetch image: ${response.statusText}`);
     }
 
     // We'll need to save the image temporarily
     const tempDir = os.tmpdir();
     const tempFile = path.join(tempDir, `raycast_image_${Date.now()}.jpg`);
-    
+
     // Convert the response to a buffer and save it
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(response.data);
     await fs.writeFile(tempFile, buffer);
 
     // Use the macOS clipboard to copy the image
     const command = `osascript -e 'set the clipboard to (read (POSIX file "${tempFile}") as «class PNGf»)'`;
-    const { exec } = require("child_process");
-    
-    exec(command, async (error: any) => {
+
+    exec(command, async (error: Error | null) => {
       // Clean up the temp file
       try {
         await fs.unlink(tempFile);
@@ -113,7 +123,7 @@ export async function copyImageToClipboard(imageUrl: string): Promise<void> {
         });
         return;
       }
-      
+
       await showToast({
         style: Toast.Style.Success,
         title: "Image copied to clipboard",
@@ -126,4 +136,48 @@ export async function copyImageToClipboard(imageUrl: string): Promise<void> {
       message: error instanceof Error ? error.message : "Unknown error",
     });
   }
+}
+
+export function getImageType(viewType: string): { fileType: string; colorType: string } {
+  let fileType = "";
+  let colorType = "";
+
+  switch (viewType) {
+    case "all":
+      return { fileType: "", colorType: "" };
+    case "bmp":
+      fileType = "bmp";
+      break;
+    case "gif":
+      fileType = "gif";
+      break;
+    case "jpeg":
+      fileType = "jpeg";
+      break;
+    case "png":
+      fileType = "png";
+      break;
+    case "webp":
+      fileType = "webp";
+      break;
+    case "svg":
+      fileType = "svg";
+      break;
+    case "avif":
+      fileType = "avif";
+      break;
+    case "color":
+      colorType = "color";
+      break;
+    case "gray":
+      colorType = "gray";
+      break;
+    case "mono":
+      colorType = "mono";
+      break;
+    case "trans":
+      colorType = "trans";
+      break;
+  }
+  return { fileType, colorType };
 }
